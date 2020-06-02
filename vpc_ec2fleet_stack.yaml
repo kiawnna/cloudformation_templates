@@ -1,0 +1,121 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  IamFleetRole: 
+    Type: String
+    Default: 'arn:aws:iam::266245855374:role/aws-service-role/ec2fleet.amazonaws.com/AWSServiceRoleForEC2Fleet'
+    Description: Enter the arn of the EC2 Fleet Role you weould like to use.
+
+Resources: 
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'false'
+      EnableDnsHostnames: 'false'
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: tableau_vpc
+
+  PublicSubnet:  
+    Type: AWS::EC2::Subnet
+    Properties: 
+      CidrBlock: '10.0.1.0/24'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: tableau_public_subnet
+  
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: tableau_ig
+  
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties: 
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: tableau_public_route_table
+  
+  PublicRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway  
+
+  PublicSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties: 
+      LaunchTemplateData: 
+        ImageId: 'ami-003634241a8fcdec0'
+        InstanceType: 't2.micro'
+        KeyName: 'kia-sandbox-us-west-2'
+        SecurityGroupIds: 
+          - !Ref EC2FleetSecurityGroup
+      LaunchTemplateName: 'tableau_lc'
+
+  EC2FleetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties: 
+      GroupDescription: 'Security group for Tableau EC2 Fleet'
+      GroupName: tableau-sec-grp
+      # SecurityGroupEgress: 
+      #   - Egress
+      # SecurityGroupIngress: 
+      #   - Ingress
+      Tags: 
+        - Key: Name
+          Value: tableau_sec_grp
+      VpcId: !Ref VPC
+  
+  EC2FleetRole:    
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: Json
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      ManagedPolicyArns: 
+        - !Ref IamFleetRole
+      MaxSessionDuration: Integer
+      Path: /
+      RoleName: String
+
+  EC2Fleet:
+    Type: AWS::EC2::EC2Fleet
+    Properties: 
+      LaunchTemplateConfigs: 
+        - LaunchTemplateSpecification:
+            LaunchTemplateId: !Ref LaunchTemplate
+            Version: '$Latest'
+      ReplaceUnhealthyInstances: true
+      TargetCapacitySpecification: 
+        DefaultTargetCapacityType: 'on-demand'
+        TotalTargetCapacity: 3
+      Type: 'instant'
+
+# # SPOT? ON-DEMAND/ RESERVED? INSTANCE TYPES? EBS OPTIMIZED?
