@@ -1,180 +1,47 @@
 AWSTemplateFormatVersion: 2010-09-09
-Parameters:
-  AMIOS:
-    AllowedValues:
-      - CentOS-7-HVM
-      - Ubuntu-Server-16.04-LTS-HVM
-    Default: CentOS-7-HVM
-    Description: The Linux distribution for the AMI to be used for the EC2 instances
-    Type: String
-  AWSHostedZoneID:
-    Description: DNS Zone ID to contain the cluster's DNS entry (blank = no DNS)
-    Type: String
-  AWSPublicFQDN:
-    Description: Tableau Server portal will be reachable at this address (blank =
-      no DNS)
-    Type: String
-  AcceptEULA:
-    AllowedPattern: 'yes'
-    AllowedValues:
-      - 'yes'
-      - 'no'
-    Description: 'View the EULA at the Link: https://www.tableau.com/eula'
-    Type: String
-  AvailabilityZones:
-    Description: 'List of Availability Zones to use for the subnets in the VPC. Note:
-      The logical order is preserved and 3 AZs MUST be used for this deployment'
-    Type: List<AWS::EC2::AvailabilityZone::Name>
-  ExistingSecurityGroup:
-    Description: Provide an existing security group or leave blank for creating a
-      new one
-    Type: String
-  IPAddress:
-    Description: Provide an Elastic IP address (EIP) for the initial node (blank =
-      no EIP)
-    Type: String
-  InstanceType:
-    AllowedValues:
-      - m4.4xlarge
-      - m4.10xlarge
-      - m5.4xlarge
-      - m5.12xlarge
-      - t3a.2xlarge
-    ConstraintDescription: must be a valid EC2 instance type.
-    Default: t3a.2xlarge
-    Description: Amazon EC2 instance type
-    Type: String
-  KeyPairName:
-    AllowedPattern: .+
-    ConstraintDescription: must be the name of an existing EC2 KeyPair.
-    Description: Name of an existing EC2 KeyPair to enable SSH access to the instances
-    Type: AWS::EC2::KeyPair::KeyName
-  Password:
-    Description: Tableau Services Manager (TSM) administrator password
-    MinLength: '6'
-    NoEcho: 'true'
-    Type: String
-  QSS3BucketName:
-    AllowedPattern: ^[0-9a-zA-Z]+([0-9a-zA-Z-]*[0-9a-zA-Z])*$
-    ConstraintDescription: Quick Start bucket name can include numbers, lowercase
-      letters, uppercase letters, and hyphens (-). It cannot start or end with a hyphen
-      (-).
-    Default: aws-quickstart
-    Description: S3 bucket name for the Quick Start assets. This string can include
-      numbers, lowercase letters, uppercase letters, and hyphens (-). It cannot start
-      or end with a hyphen (-).
-    Type: String
-  QSS3KeyPrefix:
-    AllowedPattern: ^[0-9a-zA-Z-/]*$
-    ConstraintDescription: Quick Start key prefix can include numbers, lowercase letters,
-      uppercase letters, hyphens (-), and forward slash (/).
-    Default: quickstart-tableau-server/
-    Description: S3 key prefix for the Quick Start assets. Quick Start key prefix
-      can include numbers, lowercase letters, uppercase letters, hyphens (-), and
-      forward slash (/).
-    Type: String
-  QSS3BucketRegion:
-    Default: 'us-east-1'
-    Description: "The AWS Region where the Quick Start S3 bucket (QSS3BucketName) is hosted. When using your own bucket, you must specify this value."
-    Type: String
-  RegCity:
-    Description: City
-    MinLength: '1'
-    Type: String
-  RegCompany:
-    Description: Company
-    MinLength: '1'
-    Type: String
-  RegCountry:
-    Description: Country
-    MinLength: '1'
-    Type: String
-  RegDepartment:
-    Description: Department
-    MinLength: '1'
-    Type: String
-  RegEmail:
-    Description: Email
-    MinLength: '1'
-    Type: String
-  RegFirstName:
-    Description: First Name
-    MinLength: '1'
-    Type: String
-  RegIndustry:
-    Description: Industry
-    MinLength: '1'
-    Type: String
-  RegLastName:
-    Description: Last Name
-    MinLength: '1'
-    Type: String
-  RegPhone:
-    Description: Phone
-    MinLength: '1'
-    Type: String
-  RegState:
-    Description: State
-    MinLength: '1'
-    Type: String
-  RegTitle:
-    Description: Title
-    MinLength: '1'
-    Type: String
-  RegZip:
-    Description: ZIP/Postal Code
-    MinLength: '1'
-    Type: String
-  SSLCertificateARN:
-    Default: ''
-    Description: The Amazon Resource Name for the existing SSL cert you wish to use;
-      empty for none
-    Type: String
-  SourceCIDR:
-    AllowedPattern: ^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\/([0-9]|[1-2][0-9]|3[0-2]))$
-    ConstraintDescription: Must be a valid IP CIDR range of the form x.x.x.x/x.
-    Description: IP address/range to allow access from
-    Type: String
-  TableauServerAdminPassword:
-    Description: The password of the initial administrator for Tableau Server
-    MinLength: '1'
-    NoEcho: 'true'
-    Type: String
-  TableauServerAdminUser:
-    Description: The name of the initial administrator for Tableau Server
-    MinLength: '1'
-    Type: String
-  TableauServerLicenseKey:
-    Description: License Key
-    MinLength: '1'
-    Type: String
-  Username:
-    AllowedPattern: ^(?!(tableau|tsmagent|admin|root)$)[A-Za-z0-9]+$
-    Description: Tableau Services Manager (TSM) administrator username (cannot be
-      'tableau' or 'tsmagent' or 'admin' or 'root')
-    MaxLength: '30'
-    Type: String
-  WorkerCount:
-    Default: '2'
-    Description: Number of (additional) worker nodes
-    MaxValue: '30'
-    MinValue: '2'
-    Type: Number
-Conditions:
-  UsingDefaultBucket: !Equals [!Ref QSS3BucketName, 'aws-quickstart']
-Mappings:
-  DefaultConfiguration:
-    MachineConfiguration:
-      BastionInstanceType: t3.micro
-    NetworkConfiguration:
-      VPCCIDR: 10.0.0.0/16
-      PublicSubnet1CIDR: 10.0.1.0/24
-      PrivateSubnet1CIDR: 10.0.2.0/24
-      PublicSubnet2CIDR: 10.0.3.0/24
-      PrivateSubnet2CIDR: 10.0.4.0/24
-      PublicSubnet3CIDR: 10.0.5.0/24
-      PrivateSubnet3CIDR: 10.0.6.0/24
+#Parameters:
+#  ApplicationOrStackName:
+#    Type: String
+#    Default: main
+#    Description: Enter an application or stack name. This name will be used to tag all resources created.
 
+#  VPCCidrBlock:
+#    Type: String
+#    Default: 10.0.0.0/16
+#    Description: Enter a cidr block for the virtual private cloud (VPC).
+#  VPCName:
+#    Type: String
+#    Default: mainVPC
+#    Description: Enter a name for the VPC.
+#
+#  PublicSubnet1AvailabilityZone:
+#    Type: String<AWS::EC2::AvailabilityZone::Name>
+#    Default: us-west-2a
+#    AllowedValues:
+#     - us-west-2a
+#    Description: Enter the availability zone for this public subnet.
+#  PublicSubnet1CidrBlock:
+#    Type: String
+#    Default: '10.0.1.0/24'
+#    Description: Enter the cidr block for this public subnet.
+#
+#  PublicSubnet2AvailabilityZone:
+#    Type: String<AWS::EC2::AvailabilityZone::Name>
+#    Default: us-west-2b
+#    Description: Enter the availability zone for this public subnet.
+#  PublicSubnet2CidrBlock:
+#    Type: String
+#    Default: '10.0.2.0/24'
+#    Description: Enter the cidr block for this public subnet. Cannot be the same as a previously specified cidr block.
+#
+#  PublicSubnet1CidrBlock:
+#    Type: String
+#    Default: '10.0.1.0/24'
+#    Description: Enter the cidr block for the private subnet.
+#
+#  InstanceType:
+#     Type: String<AWS::EC2::InstanceType::Name>
+#
 
 
 Resources: 
@@ -280,9 +147,10 @@ Resources:
   PrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      Tags:
-        - Tag
       VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: tableau_public_route_table
 
   PrivateRoute1:
     Type: AWS::EC2::Route
@@ -300,12 +168,12 @@ Resources:
 
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
-    Properties: 
-      LaunchTemplateData: 
+    Properties:
+      LaunchTemplateData:
         ImageId: 'ami-003634241a8fcdec0'
         InstanceType: 't2.micro'
         KeyName: 'kia-sandbox-us-west-2'
-        SecurityGroupIds: 
+        SecurityGroupIds:
           - !Ref EC2SecurityGroup
       LaunchTemplateName: 'tableau_lc'
 
@@ -313,15 +181,12 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
       IpAddressType: ipv4
-      LoadBalancerAttributes:
-        - Key: load_balancing.cross_zone.enabled
-          Value: true
       Name: ALB
       SecurityGroups:
         - !Ref ALBSecurityGroup
       Subnets:
-        - PublicSubnet1
-        - PublicSubnet2
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
       Tags:
         - Key: Name
           Value: ALB
@@ -331,35 +196,46 @@ Resources:
     Properties:
       AutoScalingGroupName: ASG
       DesiredCapacity: 2
-      LaunchConfigurationName: !Ref LaunchTemplate
       LaunchTemplate:
-        LaunchTemplateSpecification
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt LaunchTemplate.LatestVersionNumber
       MaxSize: 5
-      MetricsCollection:
-        - MetricsCollection
       MinSize: 1
-      Tags:
-        - TagProperty
       TargetGroupARNs:
         - !Ref TargetGroup1
-      TerminationPolicies:
-        - String
       VPCZoneIdentifier:
-        - PrivateSubnet
+        - !Ref PrivateSubnet
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: 'Security group for the ALB'
-      GroupName: tableau-sec-grp
-      # SecurityGroupEgress:
-      #   - Egress
-      # SecurityGroupIngress:
-      #   - Ingress
+      GroupName: alb-sec-grp
+      SecurityGroupEgress:
+          CidrIp: '0.0.0.0/0'
+          FromPort: 0
+          IpProtocol: '-1'
+          ToPort: 0
+      SecurityGroupIngress:
+          CidrIp: '0.0.0.0/0'
+          Description: 'allow internet traffic'
+          FromPort: 80
+          IpProtocol: 'tcp'
+          ToPort: 80
       Tags:
         - Key: Name
-          Value: tableau_sec_grp
+          Value: alb_sec_grp
       VpcId: !Ref VPC
+
+  ALBSecGroupIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: '0.0.0.0/0'
+      FromPort: 443
+      IpProtocol: 'tcp'
+      ToPort: 443
+      Description: 'allow secure internet traffic'
+      GroupId: !Ref ALBSecurityGroup
 
   TargetGroup1:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -372,18 +248,31 @@ Resources:
 
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
-    Properties: 
+    Properties:
       GroupDescription: 'Security group for EC2 instances'
-      GroupName: tableau-sec-grp
-      # SecurityGroupEgress: 
-      #   - Egress
-      # SecurityGroupIngress: 
-      #   - Ingress
-      Tags: 
+      GroupName: ec2-sec-grp
+      SecurityGroupEgress:
+        CidrIp: '0.0.0.0/0'
+        FromPort: 0
+        IpProtocol: '-1'
+        ToPort: 0
+      SecurityGroupIngress:
+        SourceSecurityGroupId: !Ref ALBSecurityGroup
+        Description: 'access port 80 from alb'
+        FromPort: 80
+        IpProtocol: 'tcp'
+        ToPort: 80
+      Tags:
         - Key: Name
           Value: tableau_sec_grp
       VpcId: !Ref VPC
-  
 
-
-# # SPOT? ON-DEMAND/ RESERVED? INSTANCE TYPES? EBS OPTIMIZED?
+  EC2SecGroupIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Description: 'access port 443 from alb'
+      FromPort: 443
+      IpProtocol: 'tcp'
+      ToPort: 443
+      GroupId: !Ref EC2SecurityGroup
