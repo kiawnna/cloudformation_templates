@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
-  ApplicationOrStackName:
+  AppName:
     Type: String
     Default: main
     Description: Enter an application or stack name. This name will be used to tag all resources created.
 
   VPCCidrBlock:
     Type: String
-    Default: 10.0.0.0/16
+    Default: 10.200.0.0/16
     Description: Enter a cidr block for the virtual private cloud (VPC).
 
   PublicSubnet1AvailabilityZone:
@@ -16,7 +16,7 @@ Parameters:
     Description: Enter the availability zone for this public subnet.
   PublicSubnet1CidrBlock:
     Type: String
-    Default: '10.0.1.0/24'
+    Default: '10.200.1.0/24'
     Description: Enter the cidr block for this public subnet.
 
   PublicSubnet2AvailabilityZone:
@@ -25,12 +25,12 @@ Parameters:
     Description: Enter the availability zone for this public subnet.
   PublicSubnet2CidrBlock:
     Type: String
-    Default: '10.0.2.0/24'
+    Default: '10.200.2.0/24'
     Description: Enter the cidr block for this public subnet. Cannot be the same as a previously specified cidr block.
 
   PrivateSubnetCidrBlock:
     Type: String
-    Default: '10.0.3.0/24'
+    Default: '10.200.3.0/24'
     Description: Enter the cidr block for the private subnet.
 
   InstanceType:
@@ -45,7 +45,8 @@ Parameters:
     Type: AWS::EC2::KeyPair::KeyName
     Description: Enter the name of the key pair for the launch template to use.
 
-
+# All resources that are allowed to have unique names will be named: AppName-Resource-UUID. The uuid is stack-specific
+# and insures all resources within a stack have a unique name.
 Resources: 
   VPC:
     Type: AWS::EC2::VPC
@@ -56,9 +57,7 @@ Resources:
       InstanceTenancy: default
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-VPC-${AWS::StackName}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'VPC', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   PublicSubnet1:
     Type: AWS::EC2::Subnet
@@ -68,9 +67,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-public-subnet-1-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'public-subnet1', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
@@ -80,18 +77,14 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-public-subnet-2-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'public-subnet2', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-ig-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'internet-gateway', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -105,9 +98,7 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-public-route-table-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'public-route-table', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   PublicRoute1:
     Type: AWS::EC2::Route
@@ -145,9 +136,7 @@ Resources:
       SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-nat-gateway-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'nat-gateway', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   PrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -156,33 +145,29 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-private-subnet-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'private-subnet', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
-#  PrivateRouteTable:
-#    Type: AWS::EC2::RouteTable
-#    Properties:
-#      VpcId: !Ref VPC
-#      Tags:
-#      - Key: Name
-#        Value: !Sub
-#          - ${AppName}-private-subnet-${AWS::StackId}
-#          - { AppName: !Ref ApplicationOrStackName}
-#
-#  PrivateRoute1:
-#    Type: AWS::EC2::Route
-#    DependsOn: NatGateway
-#    Properties:
-#      RouteTableId: !Ref PrivateRouteTable
-#      DestinationCidrBlock: 0.0.0.0/0
-#      NatGatewayId: !Ref NatGateway
-#
-#  PrivateSubnetRouteTableAssociation:
-#    Type: AWS::EC2::SubnetRouteTableAssociation
-#    Properties:
-#      SubnetId: !Ref PrivateSubnet
-#      RouteTableId: !Ref PrivateRouteTable
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+      - Key: Name
+        Value: !Join ['-', [!Ref AppName, 'private-route-table', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
+
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    DependsOn: NatGateway
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnetRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet
+      RouteTableId: !Ref PrivateRouteTable
 
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -195,21 +180,19 @@ Resources:
           - !Ref EC2SecurityGroup
       LaunchTemplateName: launch-template
 
-#  ApplicationLoadBalancer:
-#    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-#    Properties:
-#      IpAddressType: ipv4
-#      Name: ALB
-#      SecurityGroups:
-#        - !Ref ALBSecurityGroup
-#      Subnets:
-#        - !Ref PublicSubnet1
-#        - !Ref PublicSubnet2
-#      Tags:
-#        - Key: Name
-#          Value: !Sub
-#            - ${AppName}-alb-${AWS::StackId}
-#            - { AppName: !Ref ApplicationOrStackName}
+  ApplicationLoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Name: ALB
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      Tags:
+        - Key: Name
+          Value: !Join ['-', [!Ref AppName, 'alb', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -228,9 +211,7 @@ Resources:
       Tags:
         - Key: Name
           PropagateAtLaunch: True
-          Value: !Sub
-            - ${AppName}-asg-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'asg', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -250,21 +231,19 @@ Resources:
           ToPort: 80
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-alb-sec-grp-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'alb-sec-grp', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
       VpcId: !Ref VPC
-#
-#  ALBSecGroupIngressRule1:
-#    Type: AWS::EC2::SecurityGroupIngress
-#    Properties:
-#      CidrIp: '0.0.0.0/0'
-#      FromPort: 443
-#      IpProtocol: 'tcp'
-#      ToPort: 443
-#      Description: 'allow secure internet traffic'
-#      GroupId: !Ref ALBSecurityGroup
-#
+
+  ALBSecGroupIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      CidrIp: '0.0.0.0/0'
+      FromPort: 443
+      IpProtocol: 'tcp'
+      ToPort: 443
+      Description: 'allow secure internet traffic'
+      GroupId: !Ref ALBSecurityGroup
+
   TargetGroup1:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
@@ -275,10 +254,8 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-target-group-1-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
-#
+          Value: !Join ['-', [!Ref AppName, 'target-grp-1', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
+
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -297,20 +274,18 @@ Resources:
         ToPort: 80
       Tags:
         - Key: Name
-          Value: !Sub
-            - ${AppName}-ec2-sec-grp-${AWS::StackId}
-            - { AppName: !Ref ApplicationOrStackName}
+          Value: !Join ['-', [!Ref AppName, 'ec2-sec-grp', !Select [0, !Split ['-', !Select [2, !Split ['/', !Ref "AWS::StackId"]]]]]]
       VpcId: !Ref VPC
-#
-#  EC2SecGroupIngressRule1:
-#    Type: AWS::EC2::SecurityGroupIngress
-#    Properties:
-#      SourceSecurityGroupId: !Ref ALBSecurityGroup
-#      Description: 'access port 443 from alb'
-#      FromPort: 443
-#      IpProtocol: 'tcp'
-#      ToPort: 443
-#      GroupId: !Ref EC2SecurityGroup
+
+  EC2SecGroupIngressRule1:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      SourceSecurityGroupId: !Ref ALBSecurityGroup
+      Description: 'access port 443 from alb'
+      FromPort: 443
+      IpProtocol: 'tcp'
+      ToPort: 443
+      GroupId: !Ref EC2SecurityGroup
 
 # Coming Updates: Parameters with AllowedValues within AWS account. Ex, only allowed to choose a an availability zone
 # in a specified region.
