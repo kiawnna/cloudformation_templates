@@ -1,91 +1,101 @@
 AWSTemplateFormatVersion: 2010-09-09
-#Parameters:
-#  ApplicationOrStackName:
-#    Type: String
-#    Default: main
-#    Description: Enter an application or stack name. This name will be used to tag all resources created.
+Parameters:
+  ApplicationOrStackName:
+    Type: String
+    Default: main
+    Description: Enter an application or stack name. This name will be used to tag all resources created.
 
-#  VPCCidrBlock:
-#    Type: String
-#    Default: 10.0.0.0/16
-#    Description: Enter a cidr block for the virtual private cloud (VPC).
-#  VPCName:
-#    Type: String
-#    Default: mainVPC
-#    Description: Enter a name for the VPC.
-#
-#  PublicSubnet1AvailabilityZone:
-#    Type: String<AWS::EC2::AvailabilityZone::Name>
-#    Default: us-west-2a
-#    AllowedValues:
-#     - us-west-2a
-#    Description: Enter the availability zone for this public subnet.
-#  PublicSubnet1CidrBlock:
-#    Type: String
-#    Default: '10.0.1.0/24'
-#    Description: Enter the cidr block for this public subnet.
-#
-#  PublicSubnet2AvailabilityZone:
-#    Type: String<AWS::EC2::AvailabilityZone::Name>
-#    Default: us-west-2b
-#    Description: Enter the availability zone for this public subnet.
-#  PublicSubnet2CidrBlock:
-#    Type: String
-#    Default: '10.0.2.0/24'
-#    Description: Enter the cidr block for this public subnet. Cannot be the same as a previously specified cidr block.
-#
-#  PublicSubnet1CidrBlock:
-#    Type: String
-#    Default: '10.0.1.0/24'
-#    Description: Enter the cidr block for the private subnet.
-#
-#  InstanceType:
-#     Type: String<AWS::EC2::InstanceType::Name>
-#
+  VPCCidrBlock:
+    Type: String
+    Default: 10.0.0.0/16
+    Description: Enter a cidr block for the virtual private cloud (VPC).
+
+  PublicSubnet1AvailabilityZone:
+    Type: String
+    Default: us-west-2a
+    Description: Enter the availability zone for this public subnet.
+  PublicSubnet1CidrBlock:
+    Type: String
+    Default: '10.0.1.0/24'
+    Description: Enter the cidr block for this public subnet.
+
+  PublicSubnet2AvailabilityZone:
+    Type: String
+    Default: us-west-2b
+    Description: Enter the availability zone for this public subnet.
+  PublicSubnet2CidrBlock:
+    Type: String
+    Default: '10.0.2.0/24'
+    Description: Enter the cidr block for this public subnet. Cannot be the same as a previously specified cidr block.
+
+  PrivateSubnetCidrBlock:
+    Type: String
+    Default: '10.0.3.0/24'
+    Description: Enter the cidr block for the private subnet.
+
+  InstanceType:
+    Type: String
+    Default: t2.micro
+    Description: Enter the instance type for the launch template to use.
+  ImageId:
+    Type: String
+    Default: ami-003634241a8fcdec0
+    Description: Enter the AMI id for the launch template to use.
+  KeyPairName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: Enter the name of the key pair for the launch template to use.
 
 
 Resources: 
   VPC:
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.0.0.0/16
+      CidrBlock: !Ref VPCCidrBlock
       EnableDnsSupport: 'false'
       EnableDnsHostnames: 'false'
       InstanceTenancy: default
       Tags:
         - Key: Name
-          Value: tableau_vpc
+          Value: !Sub
+            - ${AppName}-VPC-${AWS::StackName}
+            - { AppName: !Ref ApplicationOrStackName}
 
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: us-west-2a
-      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: !Ref PublicSubnet1AvailabilityZone
+      CidrBlock: !Ref PublicSubnet1CidrBlock
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: tableau_public_subnet2
+          Value: !Sub
+            - ${AppName}-public-subnet-1-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
 
   PublicSubnet2:
     Type: AWS::EC2::Subnet
     Properties:
-      AvailabilityZone: us-west-2b
-      CidrBlock: '10.0.2.0/24'
+      AvailabilityZone: !Ref PublicSubnet2AvailabilityZone
+      CidrBlock: !Ref PublicSubnet2CidrBlock
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: tableau_public_subnet2
+          Value: !Sub
+            - ${AppName}-public-subnet-2-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
         - Key: Name
-          Value: tableau_ig
-  
+          Value: !Sub
+            - ${AppName}-ig-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
+
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
-    Properties: 
+    Properties:
       InternetGatewayId: !Ref InternetGateway
       VpcId: !Ref VPC
 
@@ -95,15 +105,17 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: tableau_public_route_table
-  
+          Value: !Sub
+            - ${AppName}-public-route-table-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
+
   PublicRoute1:
     Type: AWS::EC2::Route
     DependsOn: AttachGateway
     Properties:
       RouteTableId: !Ref PublicRouteTable
       DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref InternetGateway  
+      GatewayId: !Ref InternetGateway
 
   PublicSubnetRouteTableAssociation1:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -133,7 +145,9 @@ Resources:
       SubnetId: !Ref PublicSubnet1
       Tags:
         - Key: Name
-          Value: natgateway
+          Value: !Sub
+            - ${AppName}-nat-gateway-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
 
   PrivateSubnet:
     Type: AWS::EC2::Subnet
@@ -142,54 +156,60 @@ Resources:
       VpcId: !Ref VPC
       Tags:
         - Key: Name
-          Value: tableau_private_subnet
+          Value: !Sub
+            - ${AppName}-private-subnet-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
 
-  PrivateRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref VPC
-      Tags:
-      - Key: Name
-        Value: tableau_public_route_table
-
-  PrivateRoute1:
-    Type: AWS::EC2::Route
-    DependsOn: NatGateway
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
-
-  PrivateSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref PrivateSubnet
-      RouteTableId: !Ref PrivateRouteTable
+#  PrivateRouteTable:
+#    Type: AWS::EC2::RouteTable
+#    Properties:
+#      VpcId: !Ref VPC
+#      Tags:
+#      - Key: Name
+#        Value: !Sub
+#          - ${AppName}-private-subnet-${AWS::StackId}
+#          - { AppName: !Ref ApplicationOrStackName}
+#
+#  PrivateRoute1:
+#    Type: AWS::EC2::Route
+#    DependsOn: NatGateway
+#    Properties:
+#      RouteTableId: !Ref PrivateRouteTable
+#      DestinationCidrBlock: 0.0.0.0/0
+#      NatGatewayId: !Ref NatGateway
+#
+#  PrivateSubnetRouteTableAssociation:
+#    Type: AWS::EC2::SubnetRouteTableAssociation
+#    Properties:
+#      SubnetId: !Ref PrivateSubnet
+#      RouteTableId: !Ref PrivateRouteTable
 
   LaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
       LaunchTemplateData:
-        ImageId: 'ami-003634241a8fcdec0'
-        InstanceType: 't2.micro'
-        KeyName: 'kia-sandbox-us-west-2'
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        KeyName: !Ref KeyPairName
         SecurityGroupIds:
           - !Ref EC2SecurityGroup
-      LaunchTemplateName: 'tableau_lc'
+      LaunchTemplateName: launch-template
 
-  ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      IpAddressType: ipv4
-      Name: ALB
-      SecurityGroups:
-        - !Ref ALBSecurityGroup
-      Subnets:
-        - !Ref PublicSubnet1
-        - !Ref PublicSubnet2
-      Tags:
-        - Key: Name
-          Value: ALB
+#  ApplicationLoadBalancer:
+#    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+#    Properties:
+#      IpAddressType: ipv4
+#      Name: ALB
+#      SecurityGroups:
+#        - !Ref ALBSecurityGroup
+#      Subnets:
+#        - !Ref PublicSubnet1
+#        - !Ref PublicSubnet2
+#      Tags:
+#        - Key: Name
+#          Value: !Sub
+#            - ${AppName}-alb-${AWS::StackId}
+#            - { AppName: !Ref ApplicationOrStackName}
 
   AutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup
@@ -205,12 +225,18 @@ Resources:
         - !Ref TargetGroup1
       VPCZoneIdentifier:
         - !Ref PrivateSubnet
+      Tags:
+        - Key: Name
+          PropagateAtLaunch: True
+          Value: !Sub
+            - ${AppName}-asg-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
 
   ALBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: 'Security group for the ALB'
-      GroupName: alb-sec-grp
+      GroupName: alb-sec-grp-AWS::StackId
       SecurityGroupEgress:
           CidrIp: '0.0.0.0/0'
           FromPort: 0
@@ -224,33 +250,40 @@ Resources:
           ToPort: 80
       Tags:
         - Key: Name
-          Value: alb_sec_grp
+          Value: !Sub
+            - ${AppName}-alb-sec-grp-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
       VpcId: !Ref VPC
-
-  ALBSecGroupIngressRule1:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      CidrIp: '0.0.0.0/0'
-      FromPort: 443
-      IpProtocol: 'tcp'
-      ToPort: 443
-      Description: 'allow secure internet traffic'
-      GroupId: !Ref ALBSecurityGroup
-
+#
+#  ALBSecGroupIngressRule1:
+#    Type: AWS::EC2::SecurityGroupIngress
+#    Properties:
+#      CidrIp: '0.0.0.0/0'
+#      FromPort: 443
+#      IpProtocol: 'tcp'
+#      ToPort: 443
+#      Description: 'allow secure internet traffic'
+#      GroupId: !Ref ALBSecurityGroup
+#
   TargetGroup1:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: TargetGroup1
+      Name: target-group-1
       Port: 80
       Protocol: HTTP
       TargetType: instance
       VpcId: !Ref VPC
-
+      Tags:
+        - Key: Name
+          Value: !Sub
+            - ${AppName}-target-group-1-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
+#
   EC2SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: 'Security group for EC2 instances'
-      GroupName: ec2-sec-grp
+      GroupName: ec2-sec-grp-AWS::StackId
       SecurityGroupEgress:
         CidrIp: '0.0.0.0/0'
         FromPort: 0
@@ -264,15 +297,20 @@ Resources:
         ToPort: 80
       Tags:
         - Key: Name
-          Value: tableau_sec_grp
+          Value: !Sub
+            - ${AppName}-ec2-sec-grp-${AWS::StackId}
+            - { AppName: !Ref ApplicationOrStackName}
       VpcId: !Ref VPC
+#
+#  EC2SecGroupIngressRule1:
+#    Type: AWS::EC2::SecurityGroupIngress
+#    Properties:
+#      SourceSecurityGroupId: !Ref ALBSecurityGroup
+#      Description: 'access port 443 from alb'
+#      FromPort: 443
+#      IpProtocol: 'tcp'
+#      ToPort: 443
+#      GroupId: !Ref EC2SecurityGroup
 
-  EC2SecGroupIngressRule1:
-    Type: AWS::EC2::SecurityGroupIngress
-    Properties:
-      SourceSecurityGroupId: !Ref ALBSecurityGroup
-      Description: 'access port 443 from alb'
-      FromPort: 443
-      IpProtocol: 'tcp'
-      ToPort: 443
-      GroupId: !Ref EC2SecurityGroup
+# Coming Updates: Parameters with AllowedValues within AWS account. Ex, only allowed to choose a an availability zone
+# in a specified region.
